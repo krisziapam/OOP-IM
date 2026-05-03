@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDTS — PUP OUS Login</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" th:href="@{/css/login.css}">
+</head>
+<body class="login-page">
+
+    <!-- Dynamic animated background -->
+    <div class="bg-canvas">
+        <div class="bg-overlay"></div>
+        <canvas id="bgCanvas"></canvas>
+    </div>
+
+    <div class="login-layout">
+
+        <!-- Left panel — branding -->
+        <div class="login-brand">
+            <img th:src="@{/assets/logo.png}" alt="PUP Logo" class="brand-logo">
+            <div class="brand-text">
+                <span class="brand-sub">Polytechnic University of the Philippines</span>
+                <span class="brand-title">Open University System</span>
+                <span class="brand-office">Office of the University Registrar</span>
+            </div>
+            <div class="brand-divider"></div>
+            <p class="brand-desc">
+                PUPOUS Document Tracking System provides secure, real-time monitoring
+                of applicant document submissions across all PUP campuses.
+            </p>
+        </div>
+
+        <!-- Right panel — login form + public portal -->
+        <div class="login-panel">
+            <div class="login-card">
+                <div class="login-card-header">
+                    <h2>Staff Portal</h2>
+                    <p>Sign in with your employee credentials</p>
+                </div>
+
+                <!-- Alert messages -->
+                <div th:if="${errorMsg}" class="alert alert-danger" th:text="${errorMsg}"></div>
+                <div th:if="${logoutMsg}" class="alert alert-success" th:text="${logoutMsg}"></div>
+
+                <form method="post" th:action="@{/login}" class="login-form">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+                    <!-- Floating Label — Employee ID -->
+                    <div class="form-float">
+                        <input type="text"
+                               id="employeeId"
+                               name="employeeId"
+                               class="form-input"
+                               placeholder=" "
+                               autocomplete="username"
+                               required>
+                        <label for="employeeId" class="form-label">Employee ID</label>
+                    </div>
+
+                    <!-- Floating Label — Password -->
+                    <div class="form-float">
+                        <input type="password"
+                               id="password"
+                               name="password"
+                               class="form-input"
+                               placeholder=" "
+                               autocomplete="current-password"
+                               required>
+                        <label for="password" class="form-label">Password</label>
+                        <button type="button" class="toggle-pw" onclick="togglePassword()">
+                            <span id="eyeIcon">&#128065;</span>
+                        </button>
+                    </div>
+
+                    <button type="submit" class="btn-login">Sign In</button>
+                </form>
+
+                <!-- Public portal divider -->
+                <div class="portal-divider">
+                    <span>Student Access</span>
+                </div>
+
+                <!-- Token lookup — public portal -->
+                <div class="portal-lookup">
+                    <p class="portal-label">Track your document status</p>
+                    <div class="portal-fields">
+                        <input type="text"
+                               id="portalRef"
+                               placeholder="Reference No. (e.g. STU-2025-00001)"
+                               class="portal-input">
+                        <input type="text"
+                               id="portalToken"
+                               placeholder="Access Token (from email)"
+                               class="portal-input">
+                        <button class="btn-portal" onclick="portalLookup()">Check Status</button>
+                    </div>
+                    <div id="portalResult" class="portal-result hidden"></div>
+                </div>
+            </div>
+
+            <p class="login-footer">
+                &copy; 2025 PUP Open University System — Registrar's Office
+            </p>
+        </div>
+    </div>
+
+    <script th:src="@{/js/background.js}"></script>
+    <script th:src="@{/js/portal.js}"></script>
+    <script>
+        function togglePassword() {
+            const pw = document.getElementById('password');
+            const icon = document.getElementById('eyeIcon');
+            if (pw.type === 'password') {
+                pw.type = 'text';
+                icon.textContent = '🙈';
+            } else {
+                pw.type = 'password';
+                icon.textContent = '👁';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+/* Path: src/main/resources/static/css/style.css */
+
+/* ============================================================
+   PDTS — Global Styles
+   PUP Color Palette: Maroon #800000 | Gold #FFD700 | White #FFF
+   ============================================================ */
+
+:root {
+    --pup-maroon:      #7B1C1C;
+    --pup-maroon-dark: #5a1212;
+    --pup-gold:        #E8B84B;
+    --pup-gold-light:  #f5d47a;
+    --white:           #ffffff;
+    --off-white:       #f8f6f3;
+    --text-primary:    #1a1a1a;
+    --text-muted:      #6b7280;
+    --border:          #e5e7eb;
+    --shadow-sm:       0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md:       0 4px 16px rgba(0,0,0,0.12);
+    --shadow-lg:       0 8px 32px rgba(0,0,0,0.18);
+    --radius:          10px;
+    --radius-sm:       6px;
+
+    /* Status colors */
+    --status-pending:   #f59e0b;
+    --status-review:    #3b82f6;
+    --status-verified:  #10b981;
+    --status-rejected:  #ef4444;
+    --status-resubmit:  #8b5cf6;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 15px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    color: var(--text-primary);
+    line-height: 1.6;
+    background: var(--off-white);
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.bg-canvas {
+    position: fixed; /* Ensures it stays behind everything while scrolling */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1; /* Pushes it to the very back layer */
+    overflow: hidden;
+    background-color: var(--pup-maroon); /* Fallback background color */
+}
+
+#bgCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.bg-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(123, 28, 28, 0.9), rgba(0, 0, 0, 0.4));
+    z-index: 1; /* Sits on top of the canvas but behind the form */
+}
+/* ---- Buttons ---- */
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 20px;
+    background: var(--pup-maroon);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+.btn-primary:hover { background: var(--pup-maroon-dark); transform: translateY(-1px); }
+
+.btn-secondary {
+    padding: 9px 20px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-secondary:hover { background: var(--border); }
+
+.btn-danger {
+    padding: 9px 20px;
+    background: var(--status-rejected);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.btn-danger:hover { opacity: 0.88; }
+
+/* ---- Badges ---- */
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.badge-green  { background: #d1fae5; color: #065f46; }
+.badge-yellow { background: #fef3c7; color: #92400e; }
+.badge-red    { background: #fee2e2; color: #991b1b; }
+.badge-blue   { background: #dbeafe; color: #1e40af; }
+.badge-purple { background: #ede9fe; color: #5b21b6; }
+
+/* ---- Alerts ---- */
+.alert {
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    margin-bottom: 16px;
+}
+.alert-danger  { background: #fee2e2; color: #991b1b; border-left: 4px solid var(--status-rejected); }
+.alert-success { background: #d1fae5; color: #065f46; border-left: 4px solid var(--status-verified); }
+
+/* ---- Modal ---- */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.modal.hidden { display: none; }
+
+.modal-box {
+    background: var(--white);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 500px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+}
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--pup-maroon);
+    color: var(--white);
+}
+.modal-header h3 { font-size: 1rem; font-weight: 600; }
+.modal-close {
+    background: transparent;
+    border: none;
+    color: var(--white);
+    font-size: 1.4rem;
+    cursor: pointer;
+    line-height: 1;
+}
+.modal-body { padding: 24px; }
+.modal-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+}
+
+/* ---- Utilities ---- */
+.hidden { display: none !important; }
+.ref-badge {
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-family: 'Courier New', monospace;
+    color: var(--pup-maroon);
+}
