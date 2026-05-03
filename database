@@ -1,0 +1,509 @@
+
+-- ============================================================================
+-- PTSD DATABASE SCHEMA - CORRECTED VERSION
+-- Aligned with Darlyn's Unified Data Dictionary
+-- ============================================================================
+
+-- CREATE DATABASE pdts_db1
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
+
+USE pdts_db;
+
+SET FOREIGN_KEY_CHECKS = 0;
+SET SQL_MODE = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO';
+
+
+-- ============================================================================
+-- 1. LOOKUP / REFERENCE TABLES
+--    (no FK dependencies — created first)
+-- ============================================================================
+
+-- 1.1 educational_background_category
+--     Drives all curriculum-type logic throughout the system.
+--     SHS-001, AOC-002 (ALS + Old Curriculum), CUT-003 (Col Undergrad + TVET)
+
+CREATE TABLE educational_background_category (
+    educational_background_category_id          VARCHAR(10)  NOT NULL,
+    educational_background_category_name        VARCHAR(100) NOT NULL,
+    educational_background_category_code        VARCHAR(10)  NOT NULL COMMENT 'SHS | ALS | OLD | COL | TVET',
+    educational_background_category_description TEXT,
+    educational_background_category_is_active   TINYINT(1)   NOT NULL DEFAULT 1,
+    educational_background_category_created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT pk_ebc PRIMARY KEY (educational_background_category_id),
+    CONSTRAINT uq_ebc_code UNIQUE (educational_background_category_code)
+) ENGINE=InnoDB COMMENT='Master list of curriculum/background types that drive system logic';
+
+
+-- 1.2 role
+
+CREATE TABLE role (
+    role_id          INT          NOT NULL AUTO_INCREMENT,
+    role_name        VARCHAR(50)  NOT NULL,
+    role_description TEXT,
+
+    CONSTRAINT pk_role PRIMARY KEY (role_id),
+    CONSTRAINT uq_role_name UNIQUE (role_name)
+) ENGINE=InnoDB COMMENT='Access roles: Admission Personnel, Admin, Head Admission';
+
+
+-- 1.3 permission
+
+CREATE TABLE permission (
+    permission_id          INT          NOT NULL AUTO_INCREMENT,
+    permission_name        VARCHAR(100) NOT NULL COMMENT 'e.g. REJECT_DOCUMENT, VIEW_LOGS',
+    permission_description TEXT,
+
+    CONSTRAINT pk_permission PRIMARY KEY (permission_id),
+    CONSTRAINT uq_permission_name UNIQUE (permission_name)
+) ENGINE=InnoDB COMMENT='Master list of discrete actions a user can perform';
+
+
+-- 1.4 role_permission (bridge)
+
+CREATE TABLE role_permission (
+    role_id       INT NOT NULL,
+    permission_id INT NOT NULL,
+
+    CONSTRAINT pk_role_permission   PRIMARY KEY (role_id, permission_id),
+    CONSTRAINT fk_rp_role       FOREIGN KEY (role_id)       REFERENCES role(role_id)       ON DELETE CASCADE,
+    CONSTRAINT fk_rp_permission FOREIGN KEY (permission_id) REFERENCES permission(permission_id) ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='Maps permissions to roles for dynamic access control';
+
+
+-- 1.5 application_status
+
+CREATE TABLE application_status (
+    application_status_id          INT         NOT NULL AUTO_INCREMENT,
+    application_status_name        VARCHAR(50) NOT NULL,
+    application_status_description TEXT,
+    application_status_color       VARCHAR(7)  NOT NULL COMMENT 'Hex color for UI badge e.g. #28A745',
+    application_status_is_final    TINYINT(1)  NOT NULL DEFAULT 0
+        COMMENT '1=Final(approved/rejected), 0=Can change(pending)',
+
+    CONSTRAINT pk_application_status PRIMARY KEY (application_status_id)
+) ENGINE=InnoDB COMMENT='Standardises application stages with UI color codes';
+
+
+-- 1.6 requirement_status
+
+CREATE TABLE requirement_status (
+    requirement_status_id          INT         NOT NULL AUTO_INCREMENT,
+    requirement_status_name        VARCHAR(50) NOT NULL,
+    requirement_status_description TEXT,
+    requirement_status_color       VARCHAR(7)  NOT NULL,
+    requirement_status_is_final    TINYINT(1)  NOT NULL DEFAULT 0
+        COMMENT '1=Final(verified/cancelled), 0=Can change(pending/resubmission)',
+
+    CONSTRAINT pk_requirement_status PRIMARY KEY (requirement_status_id)
+) ENGINE=InnoDB COMMENT='Processing stages for submitted documents';
+
+
+-- 1.7 requirement_type
+
+CREATE TABLE requirement_type (
+    requirement_type_id          INT          NOT NULL AUTO_INCREMENT,
+    requirement_type_name        VARCHAR(150) NOT NULL,
+    requirement_type_description TEXT,
+
+    CONSTRAINT pk_requirement_type PRIMARY KEY (requirement_type_id)
+) ENGINE=InnoDB COMMENT='Master list of all possible required documents (PSA, F138, TOR, etc.)';
+
+
+-- 1.8 curriculum_requirement (bridge: curriculum ↔ required documents)
+
+CREATE TABLE curriculum_requirement (
+    educational_background_category_id VARCHAR(10) NOT NULL,
+    requirement_type_id                INT         NOT NULL,
+    curriculum_requirement_is_mandatory TINYINT(1) NOT NULL DEFAULT 1
+        COMMENT '1=mandatory, 0=optional',
+
+    CONSTRAINT pk_curriculum_requirement
+        PRIMARY KEY (educational_background_category_id, requirement_type_id),
+    CONSTRAINT fk_cr_ebc
+        FOREIGN KEY (educational_background_category_id)
+        REFERENCES educational_background_category(educational_background_category_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_cr_req_type
+        FOREIGN KEY (requirement_type_id)
+        REFERENCES requirement_type(requirement_type_id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='Maps mandatory/optional documents per curriculum type';
+
+
+-- 1.9 program
+
+CREATE TABLE program (
+    program_id        INT          NOT NULL AUTO_INCREMENT,
+    program_code      VARCHAR(20)  NOT NULL,
+    program_name      VARCHAR(150) NOT NULL,
+    program_is_active TINYINT(1)   NOT NULL DEFAULT 1,
+
+    CONSTRAINT pk_program PRIMARY KEY (program_id),
+    CONSTRAINT uq_program_code UNIQUE (program_code)
+) ENGINE=InnoDB COMMENT='Master list of available degree programs / NC qualifications';
+
+
+-- 1.10 campus
+
+CREATE TABLE campus (
+    campus_id       INT          NOT NULL AUTO_INCREMENT,
+    campus_name     VARCHAR(100) NOT NULL,
+    campus_location VARCHAR(200),
+
+    CONSTRAINT pk_campus PRIMARY KEY (campus_id)
+) ENGINE=InnoDB COMMENT='PUP branches/campuses where students can apply';
+
+
+-- 1.11 rejection_reason (RESTRUCTURED per Darlyn's UDD)
+--      Now links to specific requirement rejections, not just a generic library
+
+CREATE TABLE rejection_reason (
+    rejection_reason_id                  INT          NOT NULL AUTO_INCREMENT,
+    rejection_reason_name                VARCHAR(100) NOT NULL,
+    rejection_reason_description         TEXT         NOT NULL,
+    rejection_reason_is_active           TINYINT(1)   NOT NULL DEFAULT 1,
+
+    CONSTRAINT pk_rejection_reason PRIMARY KEY (rejection_reason_id)
+) ENGINE=InnoDB COMMENT='Standard rejection reasons (library)';
+
+
+-- 1.12 deadline
+
+CREATE TABLE deadline (
+    deadline_id         INT          NOT NULL AUTO_INCREMENT,
+    requirement_type_id INT          NOT NULL,
+    deadline_name       VARCHAR(100) NOT NULL,
+    deadline_date       DATETIME     NOT NULL,
+    deadline_is_active  TINYINT(1)   NOT NULL DEFAULT 1
+        COMMENT '1=Enforced, 0=Ignored/Extended',
+
+    CONSTRAINT pk_deadline     PRIMARY KEY (deadline_id),
+    CONSTRAINT fk_dl_req_type  FOREIGN KEY (requirement_type_id)
+        REFERENCES requirement_type(requirement_type_id) ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='Cutoff dates for document submissions per requirement type';
+
+
+-- 1.13 tracking_sequences
+--      Only 2 rows ever exist: STU (students) and DOC (documents)
+
+CREATE TABLE tracking_sequences (
+    tracking_sequences_id           INT         NOT NULL AUTO_INCREMENT,
+    tracking_sequences_entity_type  ENUM('student','document') NOT NULL,
+    tracking_sequences_prefix       VARCHAR(5)  NOT NULL COMMENT 'STU or DOC',
+    tracking_sequences_last_sequence INT        NOT NULL DEFAULT 0
+        COMMENT 'Resets to 0 when current_year changes',
+    tracking_sequences_current_year YEAR        NOT NULL,
+    tracking_sequences_updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT pk_tracking_sequences PRIMARY KEY (tracking_sequences_id),
+    CONSTRAINT uq_tracking_entity UNIQUE (tracking_sequences_entity_type)
+) ENGINE=InnoDB COMMENT='Counters for auto-generating public tracking numbers';
+
+
+-- ============================================================================
+-- 2. USER MANAGEMENT
+-- ============================================================================
+
+-- 2.1 user
+
+CREATE TABLE user (
+    user_id            INT          NOT NULL AUTO_INCREMENT,
+    user_last_name     VARCHAR(50)  NOT NULL,
+    user_first_name    VARCHAR(50)  NOT NULL,
+    user_middle_name   VARCHAR(50),
+    user_suffix        VARCHAR(20),
+    role_id            INT          NOT NULL,
+    user_email_address VARCHAR(100) NOT NULL,
+    user_password_hash VARCHAR(255) NOT NULL
+        COMMENT 'Bcrypt hash, cost factor >= 10. Plain text strictly prohibited.',
+    user_is_active     TINYINT(1)   NOT NULL DEFAULT 1,
+    user_created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    user_last_login    DATETIME,
+    user_username      VARCHAR(50)  NOT NULL
+        COMMENT 'Must be the employee ID of the user',
+
+    CONSTRAINT pk_user          PRIMARY KEY (user_id),
+    CONSTRAINT uq_user_username UNIQUE (user_username),
+    CONSTRAINT uq_user_email    UNIQUE (user_email_address),
+    CONSTRAINT fk_user_role     FOREIGN KEY (role_id)
+        REFERENCES role(role_id) ON UPDATE CASCADE
+) ENGINE=InnoDB COMMENT='Internal accounts for registrar staff and administrators. Permissions accessed via role->role_permission->permission';
+
+
+-- 2.2 user_activity_log (COLUMN NAMES UPDATED per Darlyn UDD)
+
+CREATE TABLE user_activity_log (
+    user_activity_log_id           BIGINT       NOT NULL AUTO_INCREMENT,
+    user_activity_log_user_id      INT          NOT NULL,
+    user_activity_log_action_type  VARCHAR(100) NOT NULL
+        COMMENT 'e.g. UPLOAD_DOCUMENT, USER_LOGIN, REJECT_DOCUMENT',
+    user_activity_log_entity_type  VARCHAR(50)  NOT NULL
+        COMMENT 'e.g. document, student, user',
+    archived_record_id             BIGINT       NOT NULL
+        COMMENT 'PK of the specific record that was changed',
+    user_activity_log_description  TEXT,
+    user_activity_log_old_value    TEXT,
+    user_activity_log_new_value    TEXT,
+    user_activity_log_ip_address   VARCHAR(45),
+    user_activity_log_performed_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT pk_ual               PRIMARY KEY (user_activity_log_id),
+    CONSTRAINT fk_ual_user          FOREIGN KEY (user_activity_log_user_id)
+        REFERENCES user(user_id) ON UPDATE CASCADE
+) ENGINE=InnoDB COMMENT='Audit trail for every action taken by users';
+
+
+-- ============================================================================
+-- 3. STUDENT / APPLICANT
+-- ============================================================================
+
+-- 3.1 previous_education
+--     Attributes are curriculum-conditional (see column comments):
+--     SHS   → track, strand
+--     ALS   → exam_center, year_passed
+--     OLD   → (no special attributes, all curriculum fields NULL)
+--     COL   → units_earned, last_course
+--     TVET  → last_course, track
+--
+--     CHANGE: Removed application_id. Educational background is applicant-level,
+--     not application-level. A single applicant has one educational background.
+
+CREATE TABLE previous_education (
+    previous_education_id              INT          NOT NULL AUTO_INCREMENT,
+    applicant_id                       INT          NOT NULL,
+    educational_background_category_id VARCHAR(10)  NOT NULL,
+    previous_education_mode_of_learning
+        ENUM('Online','Face-to-face','Modular','Blended') NOT NULL,
+    previous_education_last_school_name  VARCHAR(200) NOT NULL,
+    previous_education_school_address    TEXT,
+    previous_education_year_graduated    YEAR,
+
+    --  SHS + TVET
+    previous_education_track   VARCHAR(100)
+        COMMENT ' SHS: STEM/ABM/HUMSS/TVL/GAS.  TVET: tech-voc specialization. NULL otherwise.',
+
+    --  SHS only
+    previous_education_strand  VARCHAR(100)
+        COMMENT ' SHS: strand within the track (e.g. ICT, HE). NULL for all other types.',
+
+    --  ALS only
+    previous_education_exam_center VARCHAR(200)
+        COMMENT ' ALS: name of the A&E test center. NULL for all other types.',
+    previous_education_year_passed YEAR
+        COMMENT ' ALS: year Certificate of Rating was received. NULL for all other types.',
+
+    --  College Undergraduate only
+    previous_education_units_earned DECIMAL(5,1)
+        COMMENT ' College Undergrad: units earned in previous degree. NULL otherwise.',
+
+    --  College Undergraduate + TVET
+    previous_education_last_course VARCHAR(150)
+        COMMENT ' COL: prior degree (e.g. BSIT).  TVET: NC qualification (e.g. NC II Cookery). NULL otherwise.',
+
+    CONSTRAINT pk_prev_ed PRIMARY KEY (previous_education_id),
+    CONSTRAINT fk_pe_ebc  FOREIGN KEY (educational_background_category_id)
+        REFERENCES educational_background_category(educational_background_category_id)
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_pe_applicant  FOREIGN KEY (applicant_id)
+        REFERENCES applicant(applicant_id) ON UPDATE CASCADE
+) ENGINE=InnoDB COMMENT='Previous academic/training background; attributes vary per curriculum type. One per applicant.';
+
+
+-- 3.2 applicant
+--      CHANGE: Removed application_id. An applicant can have multiple applications.
+--      Application reference is stored only in the application table.
+
+CREATE TABLE applicant (
+    applicant_id                       INT          NOT NULL AUTO_INCREMENT,
+    applicant_first_name               VARCHAR(50)  NOT NULL,
+    applicant_middle_name              VARCHAR(50),
+    applicant_last_name                VARCHAR(50)  NOT NULL,
+    applicant_suffix                   VARCHAR(20),
+    applicant_sex                      TINYINT(1)   NOT NULL COMMENT '1=Male, 2=Female',
+    applicant_civil_status             TINYINT(1)   NOT NULL COMMENT '1=Single, 2=Married, 3=Widowed',
+    applicant_house_number_street      VARCHAR(150),
+    applicant_barangay                 VARCHAR(100),
+    applicant_city_municipality        VARCHAR(100),
+    applicant_province                 VARCHAR(100),
+    applicant_region                   VARCHAR(100),
+    applicant_zip_code                 VARCHAR(10),
+    applicant_birth_date               DATE         NOT NULL,
+    applicant_email_address            VARCHAR(100) NOT NULL,
+    applicant_contact_number           VARCHAR(20)  NOT NULL,
+    educational_background_category_id VARCHAR(10)  NOT NULL,
+    applicant_enrollment_status
+        ENUM('on_leave','continuing','dismissing') NOT NULL DEFAULT 'continuing',
+    applicant_is_protected             TINYINT(1)   NOT NULL DEFAULT 1
+        COMMENT 'Always 1. BEFORE DELETE trigger enforces no physical deletion.',
+    applicant_created_at               DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    applicant_updated_at               DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+    previous_education_id              INT,
+    user_id                            INT          NOT NULL
+        COMMENT 'Registrar who created the profile',
+
+    CONSTRAINT pk_applicant     PRIMARY KEY (applicant_id),
+    CONSTRAINT uq_applicant_email UNIQUE (applicant_email_address),
+    CONSTRAINT fk_app_ebc       FOREIGN KEY (educational_background_category_id)
+        REFERENCES educational_background_category(educational_background_category_id)
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_app_prev_ed   FOREIGN KEY (previous_education_id)
+        REFERENCES previous_education(previous_education_id),
+    CONSTRAINT fk_app_user      FOREIGN KEY (user_id)
+        REFERENCES user(user_id) ON UPDATE CASCADE
+) ENGINE=InnoDB COMMENT='Permanent personal profile of the student';
+
+
+-- 3.3 applicant_emergency_contact
+--      CHANGE: Added archive_id FK to link to archived records
+
+CREATE TABLE applicant_emergency_contact (
+    applicant_emergency_contact_id           INT          NOT NULL AUTO_INCREMENT,
+    applicant_id                             INT          NOT NULL,
+    applicant_emergency_contact_person_name  VARCHAR(100) NOT NULL,
+    applicant_emergency_contact_address      VARCHAR(200),
+    applicant_emergency_contact_number       VARCHAR(20),
+    applicant_emergency_contact_relationship VARCHAR(50)  NOT NULL,
+    applicant_emergency_contact_is_active    TINYINT(1)   NOT NULL DEFAULT 1
+        COMMENT '1=Current, 0=Historic/Old',
+    archive_id                               BIGINT
+        COMMENT 'FK to archived_record if this contact was archived',
+
+    CONSTRAINT pk_aec      PRIMARY KEY (applicant_emergency_contact_id),
+    CONSTRAINT fk_aec_app  FOREIGN KEY (applicant_id)
+        REFERENCES applicant(applicant_id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB COMMENT='Emergency contact persons for the applicant. Links to archived records if archived.';
+
+
+-- ============================================================================
+-- 4. APPLICATION & DOCUMENT TRACKING
+-- ============================================================================
+
+-- 4.1 application
+
+CREATE TABLE application (
+    application_id                INT          NOT NULL AUTO_INCREMENT,
+    applicant_id                  INT          NOT NULL,
+    program_id                    INT          NOT NULL,
+    campus_id                     INT          NOT NULL,
+    application_status_id         INT          NOT NULL,
+    deadline_id                   INT,
+    application_date              DATE         NOT NULL,
+    application_semester          VARCHAR(20)  NOT NULL COMMENT 'e.g. 1st Semester, 2nd Semester',
+    application_academic_year     VARCHAR(20)  NOT NULL COMMENT 'e.g. 2025-2026',
+    application_reference_number  VARCHAR(30)  NOT NULL COMMENT 'Public tracking number for the applicant',
+    application_last_notified_date DATETIME,
+
+    CONSTRAINT pk_application      PRIMARY KEY (application_id),
+    CONSTRAINT uq_app_ref_no       UNIQUE (application_reference_number),
+    CONSTRAINT fk_appl_applicant   FOREIGN KEY (applicant_id)
+        REFERENCES applicant(applicant_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_appl_program     FOREIGN KEY (program_id)
+        REFERENCES program(program_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_appl_campus      FOREIGN KEY (campus_id)
+        REFERENCES campus(campus_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_appl_status      FOREIGN KEY (application_status_id)
+        REFERENCES application_status(application_status_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_appl_deadline    FOREIGN KEY (deadline_id)
+        REFERENCES deadline(deadline_id) ON UPDATE CASCADE
+) ENGINE=InnoDB COMMENT='A specific enrollment attempt, linking student to program/campus/status. Applicant can have multiple applications.';
+
+
+-- 4.2 requirement
+--      CHANGE: Added archive_id FK to link to archived records
+
+CREATE TABLE requirement (
+    requirement_id                  INT          NOT NULL AUTO_INCREMENT,
+    application_id                  INT          NOT NULL,
+    requirement_type_id             INT          NOT NULL,
+    requirement_status_id           INT          NOT NULL,
+    requirement_tracking_no         VARCHAR(30)  NOT NULL COMMENT 'Auto-generated public document reference',
+    requirement_file_name           VARCHAR(255) NOT NULL,
+    requirement_image_path          TEXT         NOT NULL COMMENT 'Server path to uploaded image; NOT BLOB',
+    requirement_upload_date         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    requirement_uploaded_by_user_id INT          NOT NULL,
+    requirement_date_received       DATETIME,
+    requirement_processed_by_user_id INT,
+    requirement_processed_at        DATETIME,
+    rejection_reason_id             INT,
+    rejection_reason_rejected_by_user_id INT
+        COMMENT 'User who rejected this specific requirement (NEW per Darlyn UDD)',
+    rejection_reason_rejected_at    DATETIME
+        COMMENT 'Timestamp when this requirement was rejected (NEW per Darlyn UDD)',
+    requirement_remarks             TEXT,
+    requirement_is_email_sent       TINYINT(1)   NOT NULL DEFAULT 0,
+    requirement_has_archive_match   TINYINT(1)   NOT NULL DEFAULT 0,
+    archive_id                      BIGINT
+        COMMENT 'FK to archived_record if this requirement was archived',
+
+    CONSTRAINT pk_requirement        PRIMARY KEY (requirement_id),
+    CONSTRAINT uq_req_tracking_no    UNIQUE (requirement_tracking_no),
+    CONSTRAINT fk_req_application    FOREIGN KEY (application_id)
+        REFERENCES application(application_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_req_type           FOREIGN KEY (requirement_type_id)
+        REFERENCES requirement_type(requirement_type_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_req_status         FOREIGN KEY (requirement_status_id)
+        REFERENCES requirement_status(requirement_status_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_req_uploaded_by    FOREIGN KEY (requirement_uploaded_by_user_id)
+        REFERENCES user(user_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_req_processed_by   FOREIGN KEY (requirement_processed_by_user_id)
+        REFERENCES user(user_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_req_rejection      FOREIGN KEY (rejection_reason_id)
+        REFERENCES rejection_reason(rejection_reason_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_req_rejected_by    FOREIGN KEY (rejection_reason_rejected_by_user_id)
+        REFERENCES user(user_id) ON UPDATE CASCADE
+) ENGINE=InnoDB COMMENT='Individual document submissions, tracking status and file paths. Now includes rejection metadata per Darlyn UDD.';
+
+
+-- 4.3 archived_record
+
+CREATE TABLE archived_record (
+    archived_record_id             BIGINT       NOT NULL AUTO_INCREMENT,
+    application_id                 INT          NOT NULL,
+    applicant_id                   INT          NOT NULL,
+    archived_record_at             DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    archived_record_reason         TEXT,
+    requirement_type_id            INT,
+    applicant_emergency_contact_id INT,
+    archived_record_type
+        ENUM('File','Educational Background','Personal Info') NOT NULL,
+    archived_record_source         VARCHAR(100),
+    archived_record_data_snapshot  JSON
+        COMMENT 'Full snapshot of removed/superseded data',
+    archived_record_by_user_id     INT          NOT NULL,
+
+    CONSTRAINT pk_archived_record   PRIMARY KEY (archived_record_id),
+    CONSTRAINT fk_ar_application    FOREIGN KEY (application_id)
+        REFERENCES application(application_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_ar_applicant      FOREIGN KEY (applicant_id)
+        REFERENCES applicant(applicant_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_ar_req_type       FOREIGN KEY (requirement_type_id)
+        REFERENCES requirement_type(requirement_type_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_ar_emergency      FOREIGN KEY (applicant_emergency_contact_id)
+        REFERENCES applicant_emergency_contact(applicant_emergency_contact_id) ON UPDATE CASCADE,
+    CONSTRAINT fk_ar_user           FOREIGN KEY (archived_record_by_user_id)
+        REFERENCES user(user_id) ON UPDATE CASCADE
+) ENGINE=InnoDB COMMENT='Secure repository for superseded/removed data snapshots';
+
+
+-- Add FK from archived_record to user_activity_log (back-reference)
+ALTER TABLE user_activity_log
+    ADD CONSTRAINT fk_ual_archived_record FOREIGN KEY (archived_record_id)
+        REFERENCES archived_record(archived_record_id) ON UPDATE CASCADE;
+
+-- Add FK from applicant_emergency_contact to archived_record
+ALTER TABLE applicant_emergency_contact
+    ADD CONSTRAINT fk_aec_archived_record FOREIGN KEY (archive_id)
+        REFERENCES archived_record(archived_record_id) ON UPDATE CASCADE;
+
+-- Add FK from requirement to archived_record
+ALTER TABLE requirement
+    ADD CONSTRAINT fk_req_archived_record FOREIGN KEY (archive_id)
+        REFERENCES archived_record(archived_record_id) ON UPDATE CASCADE;
+
+
+-- Re-enable FK checks
+SET FOREIGN_KEY_CHECKS = 1;
