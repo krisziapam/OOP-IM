@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python Fundamentals</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #c8a97a;
+    background-image: 
+      radial-gradient(ellipse at 20% 50%, #b8945f 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, #d4b483 0%, transparent 50%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 20px;
+    font-family: 'Caveat', cursive;
+  }
+
+  .notebook {
+    background: #f5f0e8;
+    width: 100%;
+    max-width: 680px;
+    border-radius: 4px 12px 12px 4px;
+    box-shadow:
+      -8px 0 0 #d4a853,
+      -12px 0 0 #c8954a,
+      -16px 0 0 #b8843a,
+      4px 4px 30px rgba(0,0,0,0.4),
+      8px 8px 40px rgba(0,0,0,0.2);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Notebook lines */
+  .notebook::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      transparent,
+      transparent 31px,
+      #c9d8e8 31px,
+      #c9d8e8 32px
+    );
+    background-position: 0 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Red margin line */
+  .notebook::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 56px;
+    width: 2px;
+    background: rgba(220, 80, 80, 0.4);
+    z-index: 1;
+  }
+
+  .content {
+    position: relative;
+    z-index: 2;
+    padding: 24px 32px 40px 72px;
+  }
+
+  /* Title */
+  .title {
+    font-family: 'Special Elite', cursive;
+    font-size: 2.2rem;
+    color: #2c3e8c;
+    text-align: center;
+    margin-bottom: 4px;
+    text-decoration: underline;
+    text-underline-offset: 6px;
+    text-decoration-thickness: 2px;
+    letter-spacing: 2px;
+    line-height: 1.2;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: #555;
+    font-size: 1rem;
+    margin-bottom: 28px;
+  }
+
+  /* Pyramid */
+  .pyramid-section {
+    margin-bottom: 28px;
+  }
+
+  .pyramid {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin: 0 auto 8px;
+    position: relative;
+  }
+
+  .pyramid-block {
+    background: white;
+    border: 2px solid #333;
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    position: relative;
+    box-shadow: 3px 3px 0 #ccc;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .pyramid-block:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0 #aaa;
+  }
+
+  .pyramid-block.b1 { width: 160px; background: #fff9e6; }
+  .pyramid-block.b2 { width: 260px; background: #e8f4ff; }
+  .pyramid-block.b3 { width: 360px; background: #e8ffe8; }
+  .pyramid-block.b4 { width: 100%; max-width: 460px; background: #ffe8e8; }
+
+  .block-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #2c3e8c;
+    text-align: center;
+  }
+
+  .block-sub {
+    font-size: 0.85rem;
+    color: #555;
+    text-align: center;
+  }
+
+  .arrow-down {
+    font-size: 1.2rem;
+    color: #555;
+    line-height: 1;
+  }
+
+  /* Side labels */
+  .pyramid-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+  }
+
+  .side-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 0.9rem;
+    color: #444;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+
+  .side-label-right {
+    writing-mode: vertical-rl;
+    font-size: 0.9rem;
+    color: #444;
+    white-space: nowrap;
+  }
+
+  /* Annotations */
+  .annotations {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-left: 10px;
+    justify-content: center;
+  }
+
+  .annotation {
+    font-size: 0.82rem;
+    color: #333;
+    border-left: 2px solid #2c3e8c;
+    padding-left: 6px;
+    line-height: 1.3;
+  }
+
+  .annotation span {
+    font-weight: 700;
+    color: #2c3e8c;
+  }
+
+  /* Quiz box */
+  .quiz-box {
+    border: 2.5px solid #2c3e8c;
+    border-radius: 4px;
+    padding: 14px 18px;
+    margin-top: 20px;
+    background: rgba(255,255,255,0.5);
+  }
+
+  .quiz-title {
+    font-family: 'Special Elite', cursive;
+    font-size: 1.2rem;
+    color: #2c3e8c;
+    text-align: center;
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+  }
+
+  .quiz-q {
+    text-align: center;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #222;
+  }
+
+  .quiz-options {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+
+  .quiz-opt {
+    font-size: 1rem;
+    color: #333;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 3px;
+    transition: background 0.2s;
+  }
+
+  .quiz-opt:hover { background: #ddeeff; }
+  .quiz-opt.selected-correct { background: #c8f5c8; color: #1a6e1a; font-weight: 700; }
+  .quiz-opt.selected-wrong { background: #ffc8c8; color: #8e1a1a; font-weight: 700; }
+
+  .quiz-cta {
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #2c3e8c;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  .quiz-answer {
+    text-align: center;
+    font-size: 0.9rem;
+    margin-top: 6px;
+    color: #1a6e1a;
+    font-weight: 600;
+    min-height: 20px;
+  }
+
+  /* Code snippet boxes */
+  .code-section {
+    margin: 20px 0;
+  }
+
+  .section-label {
+    font-family: 'Special Elite', cursive;
+    font-size: 1.1rem;
+    color: #2c3e8c;
+    border-bottom: 2px solid #2c3e8c;
+    margin-bottom: 10px;
+    padding-bottom: 2px;
+    display: inline-block;
+  }
+
+  .code-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .code-card {
+    background: white;
+    border: 2px solid #333;
+    border-radius: 3px;
+    padding: 10px 12px;
+    box-shadow: 3px 3px 0 #ccc;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .code-card:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0 #aaa;
+  }
+
+  .code-card-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #2c3e8c;
+    margin-bottom: 4px;
+  }
+
+  .code-card code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    color: #333;
+    background: #f0f0f0;
+    display: block;
+    padding: 4px 6px;
+    border-radius: 2px;
+    white-space: pre;
+  }
+
+  .code-card .note {
+    font-size: 0.78rem;
+    color: #666;
+    margin-top: 4px;
+  }
+
+  /* Divider */
+  .divider {
+    border: none;
+    border-top: 1.5px dashed #aaa;
+    margin: 18px 0;
+  }
+
+  /* Pencil sketch effect for pyramid */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .pyramid-block { animation: fadeIn 0.4s ease both; }
+  .pyramid-block.b1 { animation-delay: 0.1s; }
+  .pyramid-block.b2 { animation-delay: 0.2s; }
+  .pyramid-block.b3 { animation-delay: 0.3s; }
+  .pyramid-block.b4 { animation-delay: 0.4s; }
+
+  .code-card { animation: fadeIn 0.4s ease both; }
+  .code-card:nth-child(1) { animation-delay: 0.5s; }
+  .code-card:nth-child(2) { animation-delay: 0.6s; }
+  .code-card:nth-child(3) { animation-delay: 0.7s; }
+  .code-card:nth-child(4) { animation-delay: 0.8s; }
+</style>
+</head>
+<body>
+<div class="notebook">
+  <div class="content">
+
+    <div class="title">Python Fundamentals</div>
+    <div class="subtitle">~ A Beginner's Guide ~</div>
+
+    <!-- Pyramid -->
+    <div class="pyramid-section">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <!-- Side label left -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:36px;">
+          <div style="font-size:0.75rem;color:#444;writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;">Complexity ↑</div>
+        </div>
+
+        <!-- Pyramid -->
+        <div class="pyramid" style="flex:1;">
+          <div class="pyramid-block b1">
+            <div class="block-title">🧠 OOP</div>
+            <div class="block-sub">Classes & Objects</div>
+          </div>
+          <div class="arrow-down">↕</div>
+          <div class="pyramid-block b2">
+            <div class="block-title">⚙️ Functions & Modules</div>
+            <div class="block-sub">def, import, return</div>
+          </div>
+          <div class="arrow-down">↕</div>
+          <div class="pyramid-block b3">
+            <div class="block-title">🔁 Control Flow</div>
+            <div class="block-sub">if / else / for / while / loops</div>
+          </div>
+          <div class="arrow-down">↕</div>
+          <div class="pyramid-block b4">
+            <div class="block-title">📦 Data Types & Variables</div>
+            <div class="block-sub">int · float · str · list · dict · tuple · bool</div>
+          </div>
+        </div>
+
+        <!-- Annotations -->
+        <div class="annotations" style="min-width:120px;">
+          <div class="annotation"><span>Level 4 —</span><br>Advanced:<br>OOP & Design</div>
+          <div class="annotation"><span>Level 3 —</span><br>Reusable<br>code blocks</div>
+          <div class="annotation"><span>Level 2 —</span><br>Logic &<br>decisions</div>
+          <div class="annotation"><span>Level 1 —</span><br>Foundation:<br>data & vars</div>
+        </div>
+      </div>
+
+      <div style="text-align:right;font-size:0.8rem;color:#777;margin-top:4px;">Storage Capacity ↑ as you go down</div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Code Examples -->
+    <div class="code-section">
+      <div class="section-label">Quick Reference 📋</div>
+      <div class="code-grid">
+
+        <div class="code-card">
+          <div class="code-card-title">📦 Variables</div>
+          <code>name = "Python"
+age = 33
+pi = 3.14
+is_fun = True</code>
+          <div class="note">• No type declaration needed!</div>
+        </div>
+
+        <div class="code-card">
+          <div class="code-card-title">🔁 Loops</div>
+          <code>for i in range(5):
+    print(i)
+
+while x > 0:
+    x -= 1</code>
+          <div class="note">• Indentation = structure</div>
+        </div>
+
+        <div class="code-card">
+          <div class="code-card-title">⚙️ Functions</div>
+          <code>def greet(name):
+    return f"Hi {name}!"
+
+print(greet("World"))</code>
+          <div class="note">• def keyword starts a function</div>
+        </div>
+
+        <div class="code-card">
+          <div class="code-card-title">🧠 Classes (OOP)</div>
+          <code>class Dog:
+  def __init__(self, n):
+    self.name = n
+  def bark(self):
+    return "Woof!"</code>
+          <div class="note">• Blueprint for objects</div>
+        </div>
+
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Quiz -->
+    <div class="quiz-box">
+      <div class="quiz-title">🐍 PYTHON QUIZ!</div>
+      <div class="quiz-q">Which is the correct way to define a function?</div>
+      <div class="quiz-options">
+        <div class="quiz-opt" onclick="answer(this, false)">A) function greet():</div>
+        <div class="quiz-opt" onclick="answer(this, true)">B) def greet():</div>
+        <div class="quiz-opt" onclick="answer(this, false)">C) func greet():</div>
+      </div>
+      <div class="quiz-answer" id="quiz-answer"></div>
+      <div class="quiz-cta">COMMENT A, B OR C!</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let answered = false;
+  function answer(el, correct) {
+    if (answered) return;
+    answered = true;
+    const ans = document.getElementById('quiz-answer');
+    if (correct) {
+      el.classList.add('selected-correct');
+      ans.textContent = '✅ Correct! In Python, we use "def" to define functions.';
+      ans.style.color = '#1a6e1a';
+    } else {
+      el.classList.add('selected-wrong');
+      ans.textContent = '❌ Not quite! The answer is B) def greet(): — Python uses "def".';
+      ans.style.color = '#8e1a1a';
+    }
+  }
+</script>
+</body>
+</html>
